@@ -1,0 +1,6 @@
+Flask>=2.2.0
+tensorflow>=2.10.0
+music21>=8.0.0
+numpy>=1.22.0,<2.0.0
+scipy>=1.8.0
+

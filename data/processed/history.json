@@ -1,0 +1,10 @@
+{
+  "is_training": true,
+  "current_epoch": 0,
+  "total_epochs": 15,
+  "loss": [],
+  "val_loss": [],
+  "accuracy": [],
+  "val_accuracy": [],
+  "message": "Training started..."
+}

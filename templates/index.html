@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Music Generation using LSTM</title>
+    <meta name="description" content="Generate original classical music sequences using Deep Learning LSTM trained on MIDI music datasets.">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tone.js & ToneJS MIDI Parser CDN for Browser Playback -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.min.js"></script>
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <nav class="navbar navbar-dark bg-transparent py-3 border-bottom border-secondary border-opacity-25">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold fs-4" href="#">
+                <i class="fa-solid fa-music text-accent"></i>
+                <span class="gradient-text">NeuralHarmonics</span>
+                <span class="badge bg-secondary-glow fs-6">LSTM AI</span>
+            </a>
+            <div class="d-flex align-items-center gap-3">
+                <span id="system-status-badge" class="badge rounded-pill bg-success-glow d-flex align-items-center gap-2">
+                    <span class="status-dot"></span> System Ready
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <header class="text-center mb-5">
+            <h1 class="display-4 fw-bold gradient-text mb-3">AI Music Generation using LSTM</h1>
+            <p class="lead text-light-muted max-w-700 mx-auto">
+                Train a recurrent neural network model on classical MIDI compositions to predict musical notes and compose original polyphonic melodies.
+            </p>
+        </header>
+
+        <!-- Alert Notifications -->
+        <div id="alert-container"></div>
+
+        <div class="row g-4">
+            <!-- STEP 1 & 2: DATASET & PREPROCESSING -->
+            <div class="col-lg-6">
+                <div class="card glass-card h-100">
+                    <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between pt-4 px-4">
+                        <h2 class="h5 card-title fw-bold text-white mb-0">
+                            <i class="fa-solid fa-folder-open text-cyan me-2"></i>1. Dataset & Preprocessing
+                        </h2>
+                        <span id="dataset-status-badge" class="badge bg-secondary-glow">Checking...</span>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <!-- Upload Form -->
+                        <div class="upload-zone p-4 text-center rounded-3 mb-4" id="drop-zone">
+                            <i class="fa-solid fa-cloud-arrow-up fs-2 text-cyan mb-2"></i>
+                            <h3 class="h6 text-white mb-1">Upload MIDI Files</h3>
+                            <p class="text-muted small mb-3">Drag & drop <code>.mid</code> or <code>.midi</code> files here or click to browse</p>
+                            <input type="file" id="file-input" class="d-none" accept=".mid,.midi" multiple>
+                            <button class="btn btn-outline-cyan btn-sm" onclick="document.getElementById('file-input').click()">
+                                Select MIDI Files
+                            </button>
+                        </div>
+
+                        <!-- Dataset Stats Grid -->
+                        <div class="row g-2 mb-4 text-center">
+                            <div class="col-4">
+                                <div class="stat-box p-3 rounded-3">
+                                    <div class="stat-number text-cyan" id="stat-files">0</div>
+                                    <div class="stat-label">MIDI Files</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-box p-3 rounded-3">
+                                    <div class="stat-number text-violet" id="stat-notes">0</div>
+                                    <div class="stat-label">Total Notes</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-box p-3 rounded-3">
+                                    <div class="stat-number text-pink" id="stat-vocab">0</div>
+                                    <div class="stat-label">Unique Pitches</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preprocess Action -->
+                        <div class="d-grid">
+                            <button id="btn-preprocess" class="btn btn-gradient-cyan btn-lg">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Preprocess Dataset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3 & 4: MODEL TRAINING -->
+            <div class="col-lg-6">
+                <div class="card glass-card h-100">
+                    <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between pt-4 px-4">
+                        <h2 class="h5 card-title fw-bold text-white mb-0">
+                            <i class="fa-solid fa-brain text-violet me-2"></i>2. Model Training
+                        </h2>
+                        <span id="model-status-badge" class="badge bg-secondary-glow">Untrained</span>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <form id="training-form" onsubmit="return false;">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-medium">Sequence Length</label>
+                                    <input type="number" id="cfg-seq-len" class="form-control glass-input" value="30" min="10" max="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-medium">LSTM Units</label>
+                                    <input type="number" id="cfg-lstm-units" class="form-control glass-input" value="128" step="32" min="32">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-medium">Epochs</label>
+                                    <input type="number" id="cfg-epochs" class="form-control glass-input" value="15" min="1" max="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-medium">Batch Size</label>
+                                    <input type="number" id="cfg-batch-size" class="form-control glass-input" value="32" min="8" max="256">
+                                </div>
+                            </div>
+                            <div class="d-grid mb-3">
+                                <button id="btn-train" class="btn btn-gradient-violet btn-lg">
+                                    <i class="fa-solid fa-play me-2"></i>Start Training
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Training Progress Indicator -->
+                        <div id="training-progress-container" class="d-none mt-3">
+                            <div class="d-flex justify-content-between text-muted small mb-1">
+                                <span id="train-status-text">Training model...</span>
+                                <span id="train-epoch-text">Epoch 0/0</span>
+                            </div>
+                            <div class="progress custom-progress mb-2">
+                                <div id="train-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-violet" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRAINING VISUALIZATION CHARTS -->
+            <div class="col-12">
+                <div class="card glass-card">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4">
+                        <h2 class="h5 card-title fw-bold text-white mb-0">
+                            <i class="fa-solid fa-chart-line text-cyan me-2"></i>Training Analytics & Metrics
+                        </h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <h3 class="h6 text-muted text-center mb-3">Loss Curve (Training vs Validation)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="lossChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h3 class="h6 text-muted text-center mb-3">Accuracy Curve (Training vs Validation)</h3>
+                                <div class="chart-wrapper">
+                                    <canvas id="accuracyChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5 & 6 & 7: GENERATION & PLAYER -->
+            <div class="col-12">
+                <div class="card glass-card">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4">
+                        <h2 class="h5 card-title fw-bold text-white mb-0">
+                            <i class="fa-solid fa-sliders text-pink me-2"></i>3. AI Music Generation
+                        </h2>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <div class="row g-4 align-items-center mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label text-white d-flex justify-content-between">
+                                    <span>Number of Notes to Generate:</span>
+                                    <strong class="text-cyan fs-5" id="val-notes">100</strong>
+                                </label>
+                                <input type="range" id="gen-notes" class="form-range custom-range" min="20" max="300" step="10" value="100">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-white d-flex justify-content-between">
+                                    <span>Sampling Temperature:</span>
+                                    <strong class="text-pink fs-5" id="val-temp">1.0</strong>
+                                </label>
+                                <input type="range" id="gen-temp" class="form-range custom-range" min="0.2" max="2.0" step="0.1" value="1.0">
+                                <div class="d-flex justify-content-between text-muted x-small mt-1">
+                                    <span>0.2 (Predictable)</span>
+                                    <span>1.0 (Balanced)</span>
+                                    <span>2.0 (Experimental)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            <button id="btn-generate" class="btn btn-gradient-pink btn-lg py-3">
+                                <i class="fa-solid fa-compact-disc fa-spin-hover me-2"></i>Generate Original Music
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GENERATED MUSIC PLAYER & NOTE ROLL -->
+            <div id="result-section" class="col-12 d-none">
+                <div class="card glass-card border-accent">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
+                        <h2 class="h5 card-title fw-bold text-white mb-0">
+                            <i class="fa-solid fa-circle-play text-cyan me-2"></i>Generated Composition
+                        </h2>
+                        <span id="res-filename" class="badge bg-primary-glow font-monospace">generated_music_001.mid</span>
+                    </div>
+                    <div class="card-body px-4 pb-4">
+                        <!-- Player Controls -->
+                        <div class="player-box p-4 rounded-3 text-center mb-4">
+                            <div class="d-flex justify-content-center align-items-center gap-3 mb-3">
+                                <button id="btn-play" class="btn btn-circle btn-cyan btn-lg">
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+                                <button id="btn-stop" class="btn btn-circle btn-outline-secondary btn-lg" disabled>
+                                    <i class="fa-solid fa-stop"></i>
+                                </button>
+                                <a id="btn-download" href="#" class="btn btn-gradient-cyan btn-lg ms-3" download>
+                                    <i class="fa-solid fa-download me-2"></i>Download MIDI (.mid)
+                                </a>
+                            </div>
+                            <div id="player-status" class="text-muted small">Ready to play browser synthesis</div>
+                        </div>
+
+                        <!-- Generated Sequence Visualization -->
+                        <h3 class="h6 text-muted mb-3">Generated Pitch Sequence Roll</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="pitchRollChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="text-center py-4 border-top border-secondary border-opacity-25 text-muted small">
+        <div class="container">
+            <p class="mb-0">AI Music Generation using LSTM &bull; Built with Flask, Keras, music21, Tone.js</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- App Script -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
